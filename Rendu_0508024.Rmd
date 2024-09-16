@@ -1,0 +1,451 @@
+---
+title: "RAPPORT ETUDE SUR LA PRISE EN CHARGE DU CANCER EN MILIEU CARCÉRAL"
+author: Département Data Recherche Innovation Information Médicale (DRIIM)  Hôpital
+  Intercommunal de Créteil
+date: "2024-08-01"
+output: html_document
+---
+
+```{r setup,echo=FALSE,message=FALSE,results=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning = FALSE, error = FALSE)
+#Other options: fig.width=10, fig.asp = 1, fig.align = "left", fig.show = "hold"
+```
+
+ <style type="text/css">
+  body{
+  font-size: 14pt;
+  font-family: Garamond;
+  line-height:1.5;
+  }
+  
+  h2 {
+    color: blue;
+  }
+  
+   h3 {
+    color: blue;
+  }
+  
+  .purple-heading {
+    color: purple;
+  }
+  
+  .large-p {
+    font-size: 96px;
+  }
+</style>
+
+\
+\
+\
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+# Packages utilisés
+library(tidyverse)
+library(tableone)
+library(ggplot2)
+library(viridis)
+library(questionr)
+library(Gmisc, quietly = TRUE)
+library(glue)
+library(htmlTable)
+library(grid)
+library(magrittr)
+library(DiagrammeR)
+library(palmerpenguins)
+library(gtsummary)
+library(ggpubr)
+library(reshape2)
+library(questionr) # Pour faire des tables statistique simple
+library(tidyverse)# Pour la manipulation des tables
+library(tableone) # Pour faire statistiques descriptives
+library(viridis) # Pour choisir des jolis couleurs pour les graphiques
+library(arsenal)
+library(kableExtra)
+library(knitr)
+library(leaflet)
+library(sf)
+library(rmapshaper)
+library(RColorBrewer)
+library(plotly)
+library(DT)
+# library(rgdal)
+library(DiagrammeR)
+```
+
+
+```{r, echo=FALSE,message=FALSE}
+# Chargement des data
+load("carto_sep20142023.RData")
+```
+
+
+
+## **Introduction**
+
+
+## **I Objectifs du projet**
+
+L’objectif principal de cette étude est d'améliorer la prise en charge du cancer en prison. De façon spécifique :
+
+- décrire le parcours du patient,
+    
+- analyser les délais de prise en charge diagnostic et thérapeutique des cancers,
+    
+- identifier les facteurs influant ces délais, 
+
+- comparer ces données à celles non détenues atteintes de la même affection.
+
+## **II	Matériels et méthodes **
+ 
+## **II.1. Population d’étude**
+ 
+Pour atteindre ses objectifs, la collecte des données a été effectuée à l'aide du Système National des Données de Santé (SNDS) à travers le Programme de Médicalisation des Systèmes d’Information (PMSI). Ainsi sont disponibles dans le PMSI 4 champs pour retraçer l'historique  du patient:
+
+- hospitalisations en médecine, chirurgie, obstétrique et odontologie (MCO);
+ 
+- Soins Médicaux et de Réadaptation (SMR);
+ 
+- information médicale en psychiatrie;
+ 
+- hospitalisation à domicile  (HAD).
+     
+Par ailleurs, le parcours de prise en charge d'un patient se présente comme suit:
+
+```{r Schéma de prise en charge du cancer,echo=FALSE,message=FALSE,warning=FALSE}
+DiagrammeR("graph LR;
+           A(1er EXAMEN)---B>DIAGNOSTIC];
+           B---C>1er TRAITEMENT];
+           C-->D>COMPLICATION]")
+                                             
+```
+
+
+
+ 
+Dans le cadre de cette étude seules les tables MCO et SMR seront recueillies pour décrire le diagnostic du patient, des actes effectués, le traitement entrepris et les complications subvenues au cours de son séjour. Nous disposons de variables explicatives à la fois continues, et qualitatives.
+
+04 bases de données MCO sont utilisées dont 01 pour l' identification des prisonniers (Unité Médicale $UM$), 01 pour l'identification des sejours des prisonniers,01 pour les actes et 01 pour les diagnostiques des patients. Pour ce fait,la variable ident contenue dans chaque table a servi de clé primaire pour fusionner les différentes tables. Les étapes du processus de constitution des données pour l'étude sont:
+
+**1-Identification des prisonniers**. 
+
+Les prisonniers sont identifiés à  partir des variable type rum 1 (modalité 26)  de la table $UM$.
+
+
+```{r ,echo=FALSE,message=FALSE,warning=FALSE }
+# FLOWCHART1
+grViz(diagram = "digraph flowchart {
+
+graph [label = 'Selection des patients prisonniers de 2014-2023', # title
+                           labelloc='t';         # title location at 't'op
+                           layout=dot, 
+                           overlap = true, 
+                           fontsize = 40]        # title fontsize
+  node [fontname = arial, shape = box, style = filled, color = '#55c1e6', fontcolor = black,width = 7, fontsize=25]
+  tab1 [label = '@@1']
+  tab6 [label = '@@6']
+  node [fontname = arial, shape = box, style = filled, color = '#e6d81e', fontcolor = black,width = 7, fontsize=25]
+  tab3 [label = '@@3']
+  tab10 [label = '@@10']
+  
+  node [fontname = arial, shape = box, style = filled, color = '#c0f5ff', fontcolor = black,width = 7, fontsize=25]
+  tab2 [label = '@@2']
+  tab7 [label = '@@7']
+  
+   node [fontname = arial, shape = box, style = filled, color = '#f9edc6', fontcolor = black,width = 7, fontsize=25]
+   tab4 [label = '@@4']
+  tab11 [label = '@@11']
+   
+  node [fontname = arial, shape = box, style = filled, color = '#55e6ae', fontcolor = black,width = 7, fontsize=25]
+  tab14 [label = '@@14']
+  
+  tab1 -> tab2->tab6-> tab7-> tab14;  
+  tab3 -> tab4;
+  tab4 -> tab10-> tab11->  tab14;
+  
+}
+  [1]: 'Nombre de \\n sejours en prison '
+  [2]: '49.011 '    
+  [3]: 'Nombre de \\n sejours hors prison'
+  [4]: '227.677'
+  [5]: '64.065 patients \\n en prison'
+  [6]: 'Nombre de  patients'
+  [7]: '22.808 '
+  [8]: ' 10.450 sejours \\n pour les prisonniers\\n ayant un cancer \\n avec le code  RUM'
+  [9]: '1.012 patients'
+  [10]: ' Nombre de patients'
+  [11]: '22.809'
+  [12]: '15.048 sejours \\n pour les prisonniers\\n ayant un cancer \\n avec le code gestion'
+  [13]: '2117 patients'
+  [14]: '276.688 séjours pour 22.809 \\n prisonniers'
+   ")
+```
+**2-Identification des cancers chez les prisonniers** 
+
+Le tableau suivant présente les résultats des sept étapes d'identification des patients, conformément à l'algorithme de l'INCA.
+   
+```{r}
+table_summary <- data.frame(
+  Catégorie = c(
+    "DP cancer liste", 
+    "DR cancer", 
+    "DAS cancer", 
+    "Actes de cancer", 
+    "Reconstruction mammaire", 
+    "Reconstruction ORL", 
+    "GHM tracers", 
+    "DP cancer liste 2", 
+    "DAS cancer sans DP excluant", 
+    "Total cancer"
+  ),
+  `Nombre de séjours et séances sélectionnés` = c(13520,   1585,   729,  395,  42, 245, 5,78, 1903, 18502 ),
+  `Nombre de patients` = c( 1916,  689,  443, 271,  30,  180,5, 72,  891,  4497),
+  `Nombre de nouveaux patients` = c( 1916,96, 75,   200,  19,  99,0,  43, 167, 2615))
+
+# Afficher la table
+knitr::kable( table_summary,caption = "Tableau sur les différentes étapes d'identification des prisonniers avec un cancer de 2014-2023")
+```
+
+
+
+**Nombre de cancer identifié chez les patients**
+```{r, echo=FALSE,message=FALSE}
+grViz("digraph flowchart {
+      # node definitions with substituted label text
+      node [fontname = Helvetica, shape = rectangle]        
+      tab1 [label = '@@1']
+      node [fontname = arial, shape = box, style = filled, color = '#e6d81e', fontcolor = black]
+      tab2 [label = '@@2']
+      tab3 [label = '@@3']
+      node [fontname = arial, shape =box, style = filled, color = '#f9edc6', fontcolor = black]
+      tab4 [label = '@@4']
+      tab5 [label = '@@5']
+      node [fontname = arial, shape =box, style = filled, color = '#68f3f7', fontcolor = black]
+      tab6 [label = '@@6']
+      tab7 [label = '@@7']
+      node [fontname = arial, shape =box, style = filled, color = '#c0f5ff', fontcolor = black]
+      tab8 [label = '@@8']
+      tab9 [label = '@@9']
+      tab10 [label = '@@10']
+      node [fontname = arial, shape =box, style = filled, color = '#b1e655', fontcolor = black]
+      tab11 [label = '@@11']
+      tab13 [label = '@@13']
+      tab15 [label = '@@15']
+      node [fontname = arial, shape =box, style = filled, color = '#ffc0f5', fontcolor = black]
+      tab14 [label = '@@14']
+      tab16 [label = '@@16']
+      node [fontname = arial, shape =box, style = filled, color = '#55e6ce', fontcolor = black]
+      tab17 [label = '@@17']
+
+      # edge definitions with the node IDs
+      tab1 -> tab2, tab3;
+      tab2 -> tab4,tab5;
+      tab4 -> tab6,tab7; 
+      tab6-> tab8,tab9,tab10;
+      tab8-> tab11;
+      tab9-> tab13,tab14;
+      tab10-> tab15,tab16;
+      tab11,tab13,tab15-> tab17;
+       }
+
+      [1]: '2616 patients'
+      [2]: '2253 sans métastases'
+      [3]: '362 métastases'
+      [4]: '2203 identifiés par les codes établis'
+      [5]: '50 patients sans attribution par les codes établis'
+      [6]: '2181 avec au plus 3 codes'
+      [7]: '22 avec plus de 03 codes'
+      [8]: 'Patients avec\\n1 code\\n'
+      [9]: 'Patients avec\\n2 code\\n'
+      [10]: 'Patients avec\\n3 code\\n'
+      [11]: 'catégorisé \\n1709\\n'
+      [12]: 'Non catégorisé\\n3 code\\n'
+      [13]: 'catégorisé\\n274\\n'
+      [14]: 'Non catégorisé\\n106\\n'
+      [15]: 'catégorisé\\n17\\n'
+      [16]: 'Non catégorisé\\n75\\n'
+      [17]: 'Patients avec code unique \\n2000\\n'
+      ")
+```
+
+
+
+
+**Participants**
+
+Nous fixons comme critère d'exclusion  tous les séjours des patiens ayant plusieurs codes cancers. Ainsi, nous obtenons : 
+
+```{r Flow chart de la sélection des patients,echo=FALSE,message=FALSE,warning=FALSE}
+grViz("
+digraph cohort_flow_chart
+{
+node [fontname = Helvetica, fontsize = 12, shape = box, width = 4]
+i[label = 'Période', fillcolor = LightBlue, 
+  style = filled,     width = 2]
+j[label = 'Identification',fillcolor = LightBlue, style = filled, width = 2]
+k[label = 'Eligibilité', fillcolor = LightBlue, style = filled, 
+  width = 2]
+l[label = 'Inclusion', fillcolor = LightBlue, style = filled, width = 2]
+
+a[label = '2014-2023']
+b[label = 'Patients avec 01 ou plusieurs cancers']
+c[label = 'Séjours en UHSI et hors UHSI']
+d[label = '276.688 séjours pour cancer en prison']
+e[label = ' séjours de patients sans cancer']
+f[label = '2.616 patients atteints d’un ou plusieurs cancers']
+g[label = '19120 séjours sur 2.000 patients atteints de 01 cancer']
+h[label = '616 patients atteints de plusieurs cancers ou non identifiés ']
+blank_1[label = '', width = 0.02, height = 0.02]
+blank_2[label = '', width = 0.02, height = 0.02]
+blank_4[label = '', width = 4, color = White]
+
+{ rank = same; a b i}
+{ rank = same; blank_4 c j}
+{ rank = same; f k}
+{ rank = same; g l}
+{ rank = same; blank_1 e}
+{ rank = same; blank_2 h}
+
+a -> c;
+b -> c;
+b -> blank_4 [ dir = none, color = White];
+c -> d;
+d -> blank_1 [ dir = none ];
+blank_1 -> e [ minlen = 3 ];
+blank_1 -> f;
+f -> blank_2 [ dir = none ];
+blank_2 -> h [ minlen = 3 ];
+blank_2 -> g;
+
+}
+
+[1]: excluded
+")
+```
+
+ 
+
+
+
+
+
+
+## **II.2. Méthode**
+
+## **III.Résulats**
+
+**Activités des hôpitaux sur l'ensemble des séjours identifiés par département **
+
+```{r}
+#   #cr?ation de la palette de couleur
+mypalette<-colorNumeric(palette = "YlOrRd",
+                        domain = geoProv_Dept$volume_sej)
+#   
+mytext<-paste(
+  "<b>",geoProv_Dept$nom, "</b>","<br/>",
+  "Nombre de s?jours s?jour:",geoProv_Dept$volume_sej
+)%>%lapply(htmltools::HTML)
+#   
+# 
+# 
+# 
+carte_prov_sej<-leaflet(geoProv_Dept)%>% addProviderTiles(providers$CartoDB.Positron)%>%
+  setView(lng = 1.87 , lat = 48.103, zoom = 6 )%>%
+  addPolygons(
+    fillColor = ~mypalette((volume_sej^0.4)*70),
+    label = mytext,
+    fillOpacity = 0.7,
+  )%>%
+  addLegend(
+    pal = mypalette, values = ~volume_sej,
+    title = "Nombre de sejours"
+  )
+
+```
+
+```{r,fig.height=7, fig.width=8, fig.cap="**Figure 1**: Volume total de séjours des hopitaux et leurs localisations"}
+carte_prov_sej
+```
+
+
+
+**1-Situation et état de la cancérologie chez des patients de 2014-2023**
+```{r}
+carte_hop_pris<-leaflet(data_geo_pris1)%>% addProviderTiles(providers$CartoDB.Positron)%>%
+  addCircles(
+    lng = ~longitude, lat = ~latitude, radius = ~volume_sej*50,
+    popup = ~paste(finess_rs, ":",volume_sej )
+  )
+```
+
+
+```{r,fig.height=7, fig.width=8, fig.cap="**Figure 1**: Volume total de séjours des hopitaux et leurs localisations"}
+carte_hop_pris
+```
+
+### **Activités des hopitaux **
+**Hôpitaux sur l'ensemble des séjours identifiés par les codes finess et géolocalisé**  
+
+```{r, echo=FALSE,message=FALSE}
+grViz("digraph flowchart {
+      # node definitions with substituted label text
+       node [fontname = arial, shape =box, style = filled, color = '#f7e18b', fontcolor = black]
+      tab2 [label = '@@2']
+      tab4 [label = '@@4']
+      tab6 [label = '@@6']
+       tab8 [label = '@@8']
+       node [fontname = arial, shape =box, style = filled, color = '#f0c9a5', fontcolor = black]
+       tab1 [label = '@@1']
+       tab3 [label = '@@3']
+      tab5 [label = '@@5']
+     tab7 [label = '@@7']
+
+      # edge definitions with the node IDs
+      tab1 -> tab2;
+      tab2 -> tab3;
+      tab3 -> tab4;
+      tab4 -> tab5 ; 
+      tab5 ->  tab6; 
+      tab6 -> tab7; 
+      tab7 -> tab8; 
+       }
+
+      [1]: 'Nombre de séjours'
+      [2]: '19.210'
+      [3]: 'Nombre de sejour avec hôpitaux non identifiés par finessGeoDP'
+      [4]: '0'
+      [5]: 'Nombre de Séjours non géolocalisés (longitude,latitude)'
+      [6]: '8 soit 2 hôpitaux'
+      [7]: 'Nombre de Séjours identifiés par code hôpital et géolocalisés '
+      [8]: '20.208'
+      ")
+```
+
+<p style="text-align: center;">**Table 1**: Activités des hopitaux  </p>
+
+```{r}
+data_geo <-data_geo %>%
+     arrange(desc(`Nombre sejour`))
+```
+
+```{r Table1}
+kable(data_geo)%>% 
+  kable_styling()
+  
+```
+ 
+**Tableau sur séjours par année**
+
+ <p style="text-align: center;">**Table 3**: séjours par année </p>
+
+```{r}
+SejHopAn_wider_pris<-SejHopAn_wider_pris%>%filter(Total>=50)%>%
+                      arrange(desc(Total)) 
+```
+
+```{r Table2}
+kable(SejHopAn_wider_pris)%>%
+  kable_styling()
+  
+```
+
+
